@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title>Gamedev Canvas Workshop</title>
+
     <style>
       * {
         padding: 0;
@@ -14,12 +15,14 @@
         margin: 0 auto;
       }
     </style>
-  </head>
-  <body>
-    <canvas id="myCanvas" width="480" height="320"></canvas>
 
-    <script>
-      // JavaScript code goes here
-    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script src="client.js"></script>
+  </head>
+
+  <body>
+    <canvas id="canvas"></canvas>
   </body>
+
 </html>
