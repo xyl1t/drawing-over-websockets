@@ -15,7 +15,7 @@ io.on("connection", (socket) => {
   socket.on("click", (data) => {
     const { x, y } = data;
     console.log("message: " + data);
-    io.emit("canvasUpdate", data);
+    socket.broadcast.emit("canvasUpdate", data);
     console.log(`${x} ${y}`);
   });
   socket.broadcast.emit("a new user joined!!!");
