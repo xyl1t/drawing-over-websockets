@@ -7,26 +7,32 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-io.on("connection", (socket) => {
+const components = [];
 
+io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("user disconnected");
   });
 
-  socket.on("click", (data) => {
-    const { x, y } = data;
-    console.log("message: " + data);
-    socket.broadcast.emit("canvasUpdate", data);
-    console.log(`${x} ${y}`);
-  });
-
   socket.on("new user", (data) => {
-    console.log("a user connected");
+    console.log("a new user connected");
     console.log(data);
     socket.broadcast.emit("new user", data);
   });
 
+  socket.on("click", (data) => {
+    const { x, y, color } = data;
+    components.push(data);
+    console.log(`click: ${x}, ${y}, ${color}`);
+  });
 });
+
+
+function sendUpdate() {
+  io.emit("update canvas", components);
+}
+
+setInterval(sendUpdate, 25);
 
 const PORT = 9500;
 server.listen(PORT, () => {
