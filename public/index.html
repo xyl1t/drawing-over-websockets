@@ -2,10 +2,10 @@
 <html lang="en-US">
   <head>
     <meta charset="utf-8" />
-    <title>Gamedev Canvas Workshop</title>
+    <title>Excalidraw 2.0</title>
 
     <style>
-      * {
+      body {
         padding: 0;
         margin: 0;
       }
@@ -19,14 +19,35 @@
         position: relative;
       }
 
-      #overlay {
+      .overlay {
         position: absolute;
+      }
+
+      .top-left {
         top: 0.1em;
+        left: 0.1em;
+      }
+
+      .top-right {
+        top: 0.1em;
+        right: 0.1em;
+      }
+
+      .bottom-left {
+        bottom: 0.1em;
         left: 0.1em;
       }
 
       #selectedColor {
         height: 1.5em;
+      }
+
+      #coordinates {
+        display:inline;
+      }
+
+      #name {
+        width: 10em;
       }
     </style>
 
@@ -38,12 +59,27 @@
   <body>
     <div class="container">
       <canvas id="canvas"></canvas>
-      <div id="overlay">
+
+      <div class="overlay top-left">
         <button id="square">Square</button>
         <button id="circle">Circle</button>
         <button id="line">Line</button>
-        <input type="color" id="selectedColor" name="selectedColor" value="#ff0000">
+        <input id="selectedColor" type="color" name="selectedColor" value="#ff0000">
+        <input id="fill" type="checkbox" name="fill"></input>
+        <label for="fill">fill</label><br>
       </div>
+
+      <div class="overlay top-right">
+        <input id="name" type="text" placeholder="Name"></input>
+      </div>
+
+      <div class="overlay bottom-left">
+        <button id="origin">origin</button>
+        <div id="coordinates">
+          0, 0
+        </div>
+      </div>
+
     </div>
   </body>
 </html>
