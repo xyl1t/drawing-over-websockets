@@ -16,7 +16,6 @@ io.on("connection", (socket) => {
   const token = socket.handshake.auth.token;
   if (token != "actualUser") socket.disconnect(true);
 
-  console.log("a new cursor connected");
   const newCursor = {
     id: socket.id,
     name: "",
@@ -25,7 +24,8 @@ io.on("connection", (socket) => {
     y: 0,
   };
   cursors[newCursor.id] = newCursor;
-  console.log(cursors);
+  console.log("a new cursor connected", newCursor);
+  console.log("all cursors", cursors);
   socket.emit("yourCursor", newCursor);
 
   socket.on("disconnect", () => {
@@ -49,7 +49,7 @@ io.on("connection", (socket) => {
   })
 
   socket.on("cursorUpdate", (cursor) => {
-    // if (!cursors[cursor.id]) return;
+    if (!cursor || !cursors[cursor.id]) return;
     cursors[cursor.id] = cursor;
   });
 });

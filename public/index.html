@@ -14,6 +14,7 @@
         background: #eee;
         display: block;
         margin: 0 auto;
+        cursor: none;
       }
 
       .container {
@@ -27,11 +28,27 @@
       .top-left {
         top: 0.1em;
         left: 0.1em;
+        pointer-events: none;
+      }
+      .top-left * {
+        margin-right: 0.5em;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+      }
+      .row * {
+        pointer-events: auto;
       }
 
       .top-right {
         top: 0.1em;
         right: 0.1em;
+      }
+
+      .top-right * {
+        top: 0px;
       }
 
       .bottom-left {
@@ -62,13 +79,23 @@
       <canvas id="canvas"></canvas>
 
       <div class="overlay top-left">
-        <button id="square">Square</button>
-        <button id="circle">Circle</button>
-        <button id="line">Line</button>
-        <button id="freehand">Freehand</button>
-        <input id="selectedColor" type="color" name="selectedColor" value="#ff0000">
-        <input id="fill" type="checkbox" name="fill"></input>
-        <label for="fill">fill</label><br>
+        <div class="row">
+          <button id="square">Square</button>
+          <button id="circle">Circle</button>
+          <button id="line">Line</button>
+          <button id="freehand">Freehand</button>
+          <input id="selectedColor" type="color" name="selectedColor" value="#ff0000">
+        </div>
+        <div class="row">
+          <label for="lineWidth">line width</label>
+          <input style="vertical-align: middlidth" type="range" id="lineWidth"
+            name="lineWidth" value="3" min="1" max="20"></input>
+          <output name="lineWidthOutput" id="lineWidthOutput">3</output>
+        </div>
+        <div class="row">
+          <input id="fill" type="checkbox" name="fill"></input>
+          <label for="fill">fill</label>
+        </div>
       </div>
 
       <div class="overlay top-right">

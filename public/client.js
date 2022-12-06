@@ -8,20 +8,21 @@ let myId;
 let myCursor = {};
 let cursors = {};
 
-let currentTool;
-let currentColor;
-let fill;
 let mouseX = 0;
 let mouseY = 0;
 let scrollX = 0;
 let scrollY = 0;
 
-// Tools
+let currentTool;
+let currentColor;
+let fill;
+let lineWidth;
 
+// Tools
 class Tool {
   constructor(type) {
     this.curId = myId;
-    this.id = genId();
+    // this.id = genId();
     this.type = type;
   }
 
@@ -44,6 +45,7 @@ class Circle extends Tool {
     this.ry = 0;
     this.color = currentColor;
     this.fill = fill;
+    this.lineWidth = lineWidth;
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -80,6 +82,7 @@ class Square extends Tool {
     this.height = 0;
     this.color = currentColor;
     this.fill = fill;
+    this.lineWidth = lineWidth;
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -101,6 +104,7 @@ class Line extends Tool {
     this.ex = e.x;
     this.ey = e.y;
     this.color = currentColor;
+    this.lineWidth = lineWidth;
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -120,6 +124,7 @@ class Freehand extends Tool {
     this.coords = [];
     this.coords.push({ x: e.x, y: e.y });
     this.color = currentColor;
+    this.lineWidth = lineWidth;
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -133,8 +138,9 @@ function draw(tool) {
   if (!tool) return;
 
   ctx.beginPath();
-  ctx.lineWidth = 3;
+  ctx.lineWidth = tool.lineWidth;
   ctx.lineCap = "round";
+  ctx.lineJoin = "miter";
   ctx.fillStyle = tool.color;
   ctx.strokeStyle = tool.color;
   ctx.translate(-scrollX, -scrollY);
@@ -150,9 +156,9 @@ function draw(tool) {
       ctx.lineTo(tool.ex, tool.ey);
       break;
     case "freehand":
-      ctx.lineCap = "square";
+      ctx.lineJoin = "round";
       ctx.moveTo(tool.coords[0].x, tool.coords[0].y);
-      for (const coord of tool.coords.slice(1)) {
+      for (const coord of tool.coords) {
         ctx.lineTo(coord.x, coord.y);
       }
       break;
@@ -172,7 +178,6 @@ function drawCursor(cursor) {
   ctx.strokeStyle = cursor.color;
   ctx.lineWidth = 2;
   ctx.lineCap = "square";
-  // ctx.arc(cursor.x, cursor.y, 10, 0, 2 * Math.PI);
   ctx.moveTo(cursor.x + 5 * 0 - scrollX, cursor.y + 5 * 0 - scrollY);
   ctx.lineTo(cursor.x + 5 * 0 - scrollX, cursor.y + 5 * 3 - scrollY);
   ctx.lineTo(cursor.x + 5 * 0.8 - scrollX, cursor.y + 5 * 2 - scrollY);
@@ -227,6 +232,13 @@ function setup() {
     // set stroke/fill color to color of cursor
     document.getElementById("selectedColor").value = rgbStringToHex(cur.color);
     currentColor = cur.color;
+    currentTool = new Freehand();
+
+    const input = document.getElementById("name").value;
+    if (input != "") {
+      myCursor.name = input;
+      socket.emit("cursorUpdate", myCursor);
+    }
   });
 
   socket.on("disconnect", (reason) => {
@@ -247,6 +259,8 @@ function setup() {
   currentTool = new Line();
   currentColor = document.getElementById("selectedColor").value;
   fill = document.getElementById("fill").checked;
+  lineWidth = document.getElementById("lineWidth").value;
+  document.getElementById("lineWidthOutput").innerText = lineWidth;
 
   // client event handlers
   $("#square").on("click", () => {
@@ -271,6 +285,17 @@ function setup() {
   $("#fill").on("change", () => {
     fill = document.getElementById("fill").checked;
   });
+  $("#lineWidth").on("input", () => {
+    lineWidth = document.getElementById("lineWidth").value;
+    document.getElementById("lineWidthOutput").innerText = lineWidth;
+  });
+  $("#name").on("input", () => {
+    const input = document.getElementById("name").value;
+    if (input != myCursor.name) {
+      myCursor.name = input;
+      socket.emit("cursorUpdate", myCursor);
+    }
+  });
   $("#origin").on("click", () => {
     scrollX = 0;
     scrollY = 0;
@@ -279,12 +304,6 @@ function setup() {
 }
 
 function loop() {
-  const input = document.getElementById("name").value;
-  if (input != myCursor.name) {
-    myCursor.name = input;
-    socket.emit("cursorUpdate", myCursor);
-  }
-
   ctx.fillStyle = "#eee";
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
@@ -292,8 +311,10 @@ function loop() {
     draw(c);
   }
 
+  // console.log("preview", preview)
   draw(preview);
 
+  // console.log("all previews", previews)
   for (const id in previews) {
     if (previews[id].curId != myId) {
       draw(previews[id]);
@@ -305,10 +326,13 @@ function loop() {
     // drawCursor(cursors[id]);
   }
 
+  drawCursor(myCursor);
+
   window.requestAnimationFrame(loop);
 }
 
 function mousedown(e) {
+  startDraw = true;
   let customEvent = { ...e };
   customEvent.x = e.pageX - canvas.offsetLeft + scrollX;
   customEvent.y = e.pageY - canvas.offsetTop + scrollY;
@@ -318,6 +342,7 @@ function mousedown(e) {
 }
 
 function mouseup(e) {
+  startDraw = false;
   let customEvent = { ...e };
   customEvent.x = e.pageX - canvas.offsetLeft + scrollX;
   customEvent.y = e.pageY - canvas.offsetTop + scrollY;
@@ -343,9 +368,9 @@ function mousemove(e) {
   customEvent.y = mouseY + scrollY;
   customEvent.leftDown = e.buttons == 1;
   customEvent.rightDown = e.buttons == 2;
+  if (startDraw) {
   currentTool.mousemove(customEvent);
 
-  if (customEvent.leftDown) {
     socket.emit("popPreview", preview);
     socket.emit("pushPreview", preview);
   }
