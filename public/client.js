@@ -3,16 +3,17 @@ let socket;
 let components = [];
 let preview;
 let previews = {};
+let myId;
+let myCursor = {};
+let cursors = {};
+
 let currentTool;
 let currentColor;
-let fillComponents;
+let fill;
 let mouseX = 0;
 let mouseY = 0;
 let scrollX = 0;
 let scrollY = 0;
-let myId;
-let myCursor = {};
-let cursors = {};
 
 class Tool {
   constructor(type) {
@@ -39,7 +40,7 @@ class Circle extends Tool {
     this.rx = 0;
     this.ry = 0;
     this.color = currentColor;
-    this.fill = fillComponents;
+    this.fill = fill;
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -75,7 +76,7 @@ class Square extends Tool {
     this.width = 0;
     this.height = 0;
     this.color = currentColor;
-    this.fill = fillComponents;
+    this.fill = fill;
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -107,6 +108,24 @@ class Line extends Tool {
   mouseup(e) {}
 }
 
+class Freehand extends Tool {
+  constructor() {
+    super("freehand");
+  }
+
+  mousedown(e) {
+    this.coords = [];
+    this.coords.push({ x: e.x, y: e.y });
+    this.color = currentColor;
+  }
+  mousemove(e) {
+    if (e.leftDown) {
+      this.coords.push({ x: e.x, y: e.y });
+    }
+  }
+  mouseup(e) {}
+}
+
 function draw(tool) {
   if (!tool) return;
 
@@ -126,6 +145,13 @@ function draw(tool) {
     case "line":
       ctx.moveTo(tool.sx, tool.sy);
       ctx.lineTo(tool.ex, tool.ey);
+      break;
+    case "freehand":
+      ctx.lineCap = "square";
+      ctx.moveTo(tool.coords[0].x, tool.coords[0].y);
+      for (const coord of tool.coords.slice(1)) {
+        ctx.lineTo(coord.x, coord.y);
+      }
       break;
   }
 
@@ -152,11 +178,7 @@ function drawCursor(cursor) {
   ctx.stroke();
 
   ctx.fillStyle = cursor.color;
-  ctx.fillText(
-    cursor.name,
-    cursor.x - scrollX + 8,
-    cursor.y + 24 - scrollY
-  );
+  ctx.fillText(cursor.name, cursor.x - scrollX + 6, cursor.y + 24 - scrollY);
 }
 
 $(() => {
@@ -174,12 +196,20 @@ function setup() {
   canvas.addEventListener("mouseup", mouseup, false);
   canvas.addEventListener("mousemove", mousemove, false);
   canvas.addEventListener("wheel", wheel, false);
+  window.addEventListener(
+    "resize",
+    () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    },
+    false
+  );
 
   ctx = canvas.getContext("2d");
 
   currentTool = new Line();
   currentColor = document.getElementById("selectedColor").value;
-  fillComponents = document.getElementById("fill").checked;
+  fill = document.getElementById("fill").checked;
 
   $("#square").on("click", () => {
     currentTool = new Square();
@@ -193,20 +223,20 @@ function setup() {
     currentTool = new Line();
     console.log(currentTool);
   });
+  $("#freehand").on("click", () => {
+    currentTool = new Freehand();
+    console.log(currentTool);
+  });
   $("#selectedColor").on("change", () => {
     currentColor = document.getElementById("selectedColor").value;
   });
   $("#fill").on("change", () => {
-    fillComponents = document.getElementById("fill").checked;
+    fill = document.getElementById("fill").checked;
   });
   $("#origin").on("click", () => {
     scrollX = 0;
     scrollY = 0;
     $("#coordinates").text(`${scrollX}, ${scrollY}`);
-  });
-  $("#name").on("change", () => {
-    myCursor.name = document.getElementById("name").value;
-    socket.emit("cursorUpdate", myCursor);
   });
 
   console.log("Loading socket...");
@@ -283,7 +313,7 @@ function mouseup(e) {
   socket.emit("popPreview", preview);
   socket.emit("addComponent", preview);
   components.push(preview);
-  preview = undefined;
+  // preview = undefined;
 }
 
 function mousemove(e) {
