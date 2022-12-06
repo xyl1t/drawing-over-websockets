@@ -1,3 +1,4 @@
+// global variables
 let ctx;
 let socket;
 let components = [];
@@ -14,6 +15,8 @@ let mouseX = 0;
 let mouseY = 0;
 let scrollX = 0;
 let scrollY = 0;
+
+// Tools
 
 class Tool {
   constructor(type) {
@@ -181,21 +184,19 @@ function drawCursor(cursor) {
   ctx.fillText(cursor.name, cursor.x - scrollX + 6, cursor.y + 24 - scrollY);
 }
 
+// client logic
+
 $(() => {
   setup();
   loop();
 });
 
 function setup() {
-  // setup
+  // setup client
   console.log("Loading canvas and context...");
   const canvas = document.querySelector("#canvas");
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  canvas.addEventListener("mousedown", mousedown, false);
-  canvas.addEventListener("mouseup", mouseup, false);
-  canvas.addEventListener("mousemove", mousemove, false);
-  canvas.addEventListener("wheel", wheel, false);
   window.addEventListener(
     "resize",
     () => {
@@ -204,13 +205,50 @@ function setup() {
     },
     false
   );
+  canvas.addEventListener("mousedown", mousedown, false);
+  canvas.addEventListener("mouseup", mouseup, false);
+  canvas.addEventListener("mousemove", mousemove, false);
+  canvas.addEventListener("wheel", wheel, false);
 
   ctx = canvas.getContext("2d");
+
+  console.log("Establishing connection...");
+  socket = io({
+    auth: {
+      token: "actualUser", // autherize as a legit user
+    },
+  });
+
+  // get info for this client
+  socket.on("yourCursor", (cur) => {
+    myId = cur.id;
+    myCursor = cur;
+
+    // set stroke/fill color to color of cursor
+    document.getElementById("selectedColor").value = rgbStringToHex(cur.color);
+    currentColor = cur.color;
+  });
+
+  socket.on("disconnect", (reason) => {
+    if (reason === "io server disconnect") {
+      alert("Disconnected\nReason: unauthorised");
+    }
+  });
+
+  socket.on("updateCanvas", (comps, prevs) => {
+    components = comps;
+    previews = prevs;
+  });
+
+  socket.on("updateCursors", (curs) => {
+    cursors = curs;
+  });
 
   currentTool = new Line();
   currentColor = document.getElementById("selectedColor").value;
   fill = document.getElementById("fill").checked;
 
+  // client event handlers
   $("#square").on("click", () => {
     currentTool = new Square();
     console.log(currentTool);
@@ -237,32 +275,6 @@ function setup() {
     scrollX = 0;
     scrollY = 0;
     $("#coordinates").text(`${scrollX}, ${scrollY}`);
-  });
-
-  console.log("Loading socket...");
-  socket = io({
-    auth: {
-      token: "actualUser",
-    },
-  });
-
-  socket.on("updateCanvas", (comps, prevs) => {
-    components = comps;
-    previews = prevs;
-  });
-
-  socket.on("updateCursors", (curs) => {
-    cursors = curs;
-  });
-
-  socket.on("yourCursor", (cur) => {
-    myId = cur.id;
-    myCursor = cur;
-    currentTool.curId = myId;
-
-    // set stroke/fill color to color of cursor
-    document.getElementById("selectedColor").value = rgbStringToHex(cur.color);
-    currentColor = cur.color;
   });
 }
 
@@ -312,8 +324,7 @@ function mouseup(e) {
   currentTool.mouseup(customEvent);
   socket.emit("popPreview", preview);
   socket.emit("addComponent", preview);
-  components.push(preview);
-  // preview = undefined;
+  components.push({ ...preview });
 }
 
 function mousemove(e) {
