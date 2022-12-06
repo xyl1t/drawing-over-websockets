@@ -36,16 +36,19 @@ io.on("connection", (socket) => {
 
   socket.on("addComponent", (data) => {
     components.push(data);
+    // updateCanvas();
   });
 
   socket.on("pushPreview", (p) => {
+    if (!p) return;
     previews[p.id] = p;
-    console.log(previews)
+    // console.log(previews)
   })
 
   socket.on("popPreview", (p) => {
+    if (!p || !previews[p.id]) return;
     delete previews[p.id];
-    console.log(previews)
+    // console.log(previews)
   })
 
   socket.on("cursorUpdate", (cursor) => {
@@ -62,7 +65,7 @@ function updateCursors() {
 }
 
 setInterval(updateCanvas, 1000 / 30);
-setInterval(updateCursors, 1000 / 30);
+setInterval(updateCursors, 1000 / 20);
 
 const PORT = 9500;
 server.listen(PORT, () => {

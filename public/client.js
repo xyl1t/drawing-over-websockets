@@ -22,7 +22,6 @@ let lineWidth;
 class Tool {
   constructor(type) {
     this.curId = myId;
-    // this.id = genId();
     this.type = type;
   }
 
@@ -185,8 +184,11 @@ function drawCursor(cursor) {
   ctx.lineTo(cursor.x + 5 * 0 - scrollX, cursor.y + 5 * 0 - scrollY);
   ctx.stroke();
 
+ctx.imageSmoothingEnabled= false;
   ctx.fillStyle = cursor.color;
+  ctx.font = "12px Arial";
   ctx.fillText(cursor.name, cursor.x - scrollX + 6, cursor.y + 24 - scrollY);
+ctx.imageSmoothingEnabled= true;
 }
 
 // client logic
@@ -216,6 +218,7 @@ function setup() {
   canvas.addEventListener("wheel", wheel, false);
 
   ctx = canvas.getContext("2d");
+  // ctx.translate(0.5, 0.5);
 
   console.log("Establishing connection...");
   socket = io({
@@ -311,14 +314,10 @@ function loop() {
     draw(c);
   }
 
-  // console.log("preview", preview)
-  draw(preview);
-
-  // console.log("all previews", previews)
   for (const id in previews) {
-    if (previews[id].curId != myId) {
+    // if (previews[id].curId != myId) {
       draw(previews[id]);
-    }
+    // }
   }
 
   for (const id in cursors) {
@@ -332,30 +331,31 @@ function loop() {
 }
 
 function mousedown(e) {
-  startDraw = true;
   let customEvent = { ...e };
   customEvent.x = e.pageX - canvas.offsetLeft + scrollX;
   customEvent.y = e.pageY - canvas.offsetTop + scrollY;
   currentTool.mousedown(customEvent);
   preview = currentTool;
+  preview.id = genId();
+  previews[preview.id] = preview;
   socket.emit("pushPreview", preview);
 }
 
 function mouseup(e) {
-  startDraw = false;
   let customEvent = { ...e };
   customEvent.x = e.pageX - canvas.offsetLeft + scrollX;
   customEvent.y = e.pageY - canvas.offsetTop + scrollY;
   currentTool.mouseup(customEvent);
   socket.emit("popPreview", preview);
   socket.emit("addComponent", preview);
-  components.push({ ...preview });
 }
 
 function mousemove(e) {
   mouseX = e.pageX - canvas.offsetLeft;
   mouseY = e.pageY - canvas.offsetTop;
-  $("#coordinates").text(`${scrollX + mouseX}, ${scrollY + mouseY}`);
+  $("#coordinates").text(
+    `${parseInt(scrollX + mouseX)}, ${parseInt(scrollY + mouseY)}`
+  );
 
   if (myId) {
     myCursor.x = mouseX + scrollX;
@@ -368,10 +368,10 @@ function mousemove(e) {
   customEvent.y = mouseY + scrollY;
   customEvent.leftDown = e.buttons == 1;
   customEvent.rightDown = e.buttons == 2;
-  if (startDraw) {
   currentTool.mousemove(customEvent);
-
-    socket.emit("popPreview", preview);
+  if (customEvent.leftDown) {
+    // socket.emit("changePreview", preview);
+    // socket.emit("popPreview", preview);
     socket.emit("pushPreview", preview);
   }
 }
@@ -379,18 +379,18 @@ function mousemove(e) {
 function wheel(e) {
   e.preventDefault();
 
-  const clamp = (num) => Math.round(Math.max(-1, Math.min(1, num)));
+  let deltaX = e.deltaX;
+  let deltaY = e.deltaY;
 
-  let deltaX = clamp(e.deltaX);
-  let deltaY = clamp(e.deltaY);
-
+  console.log(deltaY);
+console.log(e.deltaMode);
   if (e.shiftKey) {
     deltaY = 0;
-    deltaX = clamp(e.deltaY || e.deltaX);
+    deltaX = e.deltaY || e.deltaX;
   }
 
-  scrollX += deltaX * 50;
-  scrollY += deltaY * 50;
+  scrollX += (Math.max(-100, Math.min(100, deltaX)) / 100) * 100;
+  scrollY += (Math.max(-100, Math.min(100, deltaY)) / 100) * 100;
 
   if (myId) {
     myCursor.x = mouseX + scrollX;
@@ -398,7 +398,9 @@ function wheel(e) {
     socket.emit("cursorUpdate", myCursor);
   }
 
-  $("#coordinates").text(`${scrollX + mouseX}, ${scrollY + mouseY}`);
+  $("#coordinates").text(
+    `${parseInt(scrollX + mouseX)}, ${parseInt(scrollY + mouseY)}`
+  );
 }
 
 function getRandomColor() {
@@ -407,8 +409,9 @@ function getRandomColor() {
   )},${Math.floor(Math.random() * 255)})`;
 }
 
-function rgbStringToHex(rgb) {
-  let a = rgb.split("(")[1].split(")")[0];
+function rgbStringToHex(rgbString) {
+  String;
+  let a = rgbString.split("(")[1].split(")")[0];
   a = a.split(",");
   var b = a.map(function (x) {
     //For each array element
@@ -417,6 +420,10 @@ function rgbStringToHex(rgb) {
   });
   b = "#" + b.join("");
   return b;
+}
+
+function invertHex(hex) {
+  return (Number(`0x1${hex}`) ^ 0xffffff).toString(16).substr(1).toUpperCase();
 }
 
 function genId() {
