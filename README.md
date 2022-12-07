@@ -18,3 +18,4 @@ npm start
 
 The server will be running at `0.0.0.0` on port `9500`
 
+![Preview](./js-multiplayer-game.png)
