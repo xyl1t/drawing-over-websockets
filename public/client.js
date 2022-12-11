@@ -1,10 +1,10 @@
 // global variables
 let ctx;
 let socket;
+
 let components = [];
 let preview;
 let previews = {};
-let myId;
 let myCursor = {};
 let cursors = {};
 
@@ -21,7 +21,7 @@ let lineWidth;
 // Tools
 class Tool {
   constructor(type) {
-    this.curId = myId;
+    this.curId = myCursor.id;
     this.type = type;
   }
 
@@ -184,11 +184,9 @@ function drawCursor(cursor) {
   ctx.lineTo(cursor.x + 5 * 0 - scrollX, cursor.y + 5 * 0 - scrollY);
   ctx.stroke();
 
-ctx.imageSmoothingEnabled= false;
   ctx.fillStyle = cursor.color;
   ctx.font = "12px Arial";
   ctx.fillText(cursor.name, cursor.x - scrollX + 6, cursor.y + 24 - scrollY);
-ctx.imageSmoothingEnabled= true;
 }
 
 // client logic
@@ -229,7 +227,6 @@ function setup() {
 
   // get info for this client
   socket.on("yourCursor", (cur) => {
-    myId = cur.id;
     myCursor = cur;
 
     // set stroke/fill color to color of cursor
@@ -240,13 +237,15 @@ function setup() {
     const input = document.getElementById("name").value;
     if (input != "") {
       myCursor.name = input;
-      socket.emit("cursorUpdate", myCursor);
+      if (myCursor.id) {
+        socket.emit("cursorUpdate", myCursor);
+      }
     }
   });
 
   socket.on("disconnect", (reason) => {
     if (reason === "io server disconnect") {
-      alert("Disconnected\nReason: unauthorised");
+      alert("Disconnected");
     }
   });
 
@@ -257,6 +256,21 @@ function setup() {
 
   socket.on("updateCursors", (curs) => {
     cursors = curs;
+    myCursor = cursors[myCursor.id];
+  });
+
+  socket.on("chat", (cursor, msg) => {
+    let msgItem;
+    if (cursor.name != "" && cursor.id != myCursor.id) {
+      msgItem = $(`<div>${cursor.name}: ${msg}</div>`);
+    } else {
+      msgItem = $(`<div>${msg}</div>`);
+    }
+
+    if (cursor.name === "server") msgItem.addClass("serverMsg");
+    if (cursor.id == myCursor.id) msgItem.addClass("myMsg");
+    msgItem.css("color", cursor.color);
+    $("#chatdiv").prepend(msgItem);
   });
 
   currentTool = new Line();
@@ -296,13 +310,44 @@ function setup() {
     const input = document.getElementById("name").value;
     if (input != myCursor.name) {
       myCursor.name = input;
-      socket.emit("cursorUpdate", myCursor);
+      if (myCursor.id) {
+        socket.emit("cursorUpdate", myCursor);
+      }
     }
   });
-  $("#origin").on("click", () => {
-    scrollX = 0;
-    scrollY = 0;
-    $("#coordinates").text(`${scrollX}, ${scrollY}`);
+  $("#xCoord").keypress((event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const newX = parseInt($("#xCoord").val());
+      const newY = parseInt($("#yCoord").val());
+      if (!isNaN(newX)) scrollX = newX;
+      if (!isNaN(newY)) scrollY = newY;
+    }
+  });
+  $("#yCoord").keypress((event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const newX = parseInt($("#xCoord").val());
+      const newY = parseInt($("#yCoord").val());
+      if (!isNaN(newX)) scrollX = newX;
+      if (!isNaN(newY)) scrollY = newY;
+    }
+  });
+
+  $("#send").on("click", () => {
+    const msg = $("#chatInput").val();
+    $("#chatInput").val("");
+    console.log(msg);
+    socket.emit("chat", myCursor, msg);
+  });
+  $("#chatInput").keypress((event) => {
+    if (event.key == "Enter") {
+      event.preventDefault();
+      const msg = $("#chatInput").val();
+      $("#chatInput").val("");
+      console.log(msg);
+      socket.emit("chat", myCursor, msg);
+    }
   });
 }
 
@@ -315,17 +360,23 @@ function loop() {
   }
 
   for (const id in previews) {
-    // if (previews[id].curId != myId) {
+    if (previews[id].curId != myCursor.id) {
       draw(previews[id]);
-    // }
+    } else {
+      draw(preview);
+    }
   }
 
   for (const id in cursors) {
-    if (id != myId) drawCursor(cursors[id]);
+    if (id != myCursor.id) drawCursor(cursors[id]);
     // drawCursor(cursors[id]);
   }
 
   drawCursor(myCursor);
+
+  if (myCursor.id) {
+    socket.emit("pulse", myCursor);
+  }
 
   window.requestAnimationFrame(loop);
 }
@@ -334,45 +385,66 @@ function mousedown(e) {
   let customEvent = { ...e };
   customEvent.x = e.pageX - canvas.offsetLeft + scrollX;
   customEvent.y = e.pageY - canvas.offsetTop + scrollY;
-  currentTool.mousedown(customEvent);
-  preview = currentTool;
-  preview.id = genId();
-  previews[preview.id] = preview;
-  socket.emit("pushPreview", preview);
+  customEvent.leftDown = (e.buttons & 1) == 1;
+  customEvent.rightDown = (e.buttons & 2) == 2;
+
+  if (customEvent.rightDown && preview) {
+    if (preview) socket.emit("popPreview", preview);
+    delete previews[preview.id];
+    preview = undefined;
+  }
+
+  if (customEvent.leftDown) {
+    currentTool.id = genId();
+    currentTool.mousedown(customEvent);
+    preview = currentTool;
+    socket.emit("pushPreview", preview);
+    previews[preview.id] = preview;
+  }
 }
 
 function mouseup(e) {
   let customEvent = { ...e };
   customEvent.x = e.pageX - canvas.offsetLeft + scrollX;
   customEvent.y = e.pageY - canvas.offsetTop + scrollY;
+  customEvent.leftUp = (e.which & 1) == 1;
+  customEvent.rightUp = (e.which & 2) == 2;
   currentTool.mouseup(customEvent);
-  socket.emit("popPreview", preview);
-  socket.emit("addComponent", preview);
+  if (customEvent.leftUp && preview) {
+    socket.emit("addComponent", preview);
+    components.push(preview);
+    socket.emit("popPreview", preview);
+    delete previews[preview.id];
+    preview = undefined;
+  }
 }
 
 function mousemove(e) {
   mouseX = e.pageX - canvas.offsetLeft;
   mouseY = e.pageY - canvas.offsetTop;
-  $("#coordinates").text(
-    `${parseInt(scrollX + mouseX)}, ${parseInt(scrollY + mouseY)}`
-  );
+  $("#xCoord").val(`${parseInt(scrollX + mouseX - canvas.width / 2)}`);
+  $("#yCoord").val(`${parseInt(scrollY + mouseY - canvas.height / 2)}`);
 
-  if (myId) {
-    myCursor.x = mouseX + scrollX;
-    myCursor.y = mouseY + scrollY;
+  myCursor.x = mouseX + scrollX;
+  myCursor.y = mouseY + scrollY;
+
+  if (myCursor.id) {
     socket.emit("cursorUpdate", myCursor);
   }
 
   let customEvent = { ...e };
   customEvent.x = mouseX + scrollX;
   customEvent.y = mouseY + scrollY;
-  customEvent.leftDown = e.buttons == 1;
-  customEvent.rightDown = e.buttons == 2;
+  customEvent.leftDown = (e.buttons & 1) == 1;
+  customEvent.rightDown = (e.buttons & 2) == 2;
   currentTool.mousemove(customEvent);
-  if (customEvent.leftDown) {
-    // socket.emit("changePreview", preview);
-    // socket.emit("popPreview", preview);
+  if (customEvent.leftDown && preview) {
     socket.emit("pushPreview", preview);
+  } else if (!customEvent.leftDown && preview) {
+    console.log("test");
+    socket.emit("popPreview", preview);
+    delete previews[preview.id];
+    preview = undefined;
   }
 }
 
@@ -382,8 +454,6 @@ function wheel(e) {
   let deltaX = e.deltaX;
   let deltaY = e.deltaY;
 
-  console.log(deltaY);
-console.log(e.deltaMode);
   if (e.shiftKey) {
     deltaY = 0;
     deltaX = e.deltaY || e.deltaX;
@@ -392,15 +462,14 @@ console.log(e.deltaMode);
   scrollX += (Math.max(-100, Math.min(100, deltaX)) / 100) * 100;
   scrollY += (Math.max(-100, Math.min(100, deltaY)) / 100) * 100;
 
-  if (myId) {
-    myCursor.x = mouseX + scrollX;
-    myCursor.y = mouseY + scrollY;
+  myCursor.x = mouseX + scrollX;
+  myCursor.y = mouseY + scrollY;
+  if (myCursor.id) {
     socket.emit("cursorUpdate", myCursor);
   }
 
-  $("#coordinates").text(
-    `${parseInt(scrollX + mouseX)}, ${parseInt(scrollY + mouseY)}`
-  );
+  $("#xCoord").val(`${parseInt(scrollX + mouseX - canvas.width / 2)}`);
+  $("#yCoord").val(`${parseInt(scrollY + mouseY - canvas.height / 2)}`);
 }
 
 function getRandomColor() {

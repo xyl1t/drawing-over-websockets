@@ -12,6 +12,12 @@ const previews = {};
 const cursors = {};
 const sockets = {};
 
+const theServer = {
+  name: "server",
+  color: "rgb(255,0,0)",
+};
+
+
 io.on("connection", (socket) => {
   const token = socket.handshake.auth.token;
   if (token != "actualUser") socket.disconnect(true);
@@ -22,11 +28,15 @@ io.on("connection", (socket) => {
     color: getRandomColor(),
     x: 0,
     y: 0,
+    lastHeartbeat: new Date().getTime(),
   };
   cursors[newCursor.id] = newCursor;
+  sockets[newCursor.id] = socket;
+
   console.log("a new cursor connected", newCursor);
   console.log("all cursors", cursors);
   socket.emit("yourCursor", newCursor);
+  socket.broadcast.emit("chat", theServer, "A new cursor joined!");
 
   socket.on("disconnect", () => {
     console.log("cursor disconnected");
@@ -40,20 +50,29 @@ io.on("connection", (socket) => {
   });
 
   socket.on("pushPreview", (p) => {
-    if (!p) return;
     previews[p.id] = p;
     // console.log(previews)
-  })
+  });
 
   socket.on("popPreview", (p) => {
-    if (!p || !previews[p.id]) return;
     delete previews[p.id];
     // console.log(previews)
-  })
+  });
 
   socket.on("cursorUpdate", (cursor) => {
-    if (!cursor || !cursors[cursor.id]) return;
+    if (!cursors[cursor.id]) return;
     cursors[cursor.id] = cursor;
+  });
+
+  socket.on("chat", (cursor, msg) => {
+    console.log("chat", cursor, msg)
+    io.emit("chat", cursor, msg);
+  })
+
+  socket.on("pulse", (cursor) => {
+    if (!cursors[cursor.id]) return;
+    cursors[cursor.id].lastHeartbeat = new Date().getTime();
+    // console.log(cursor.id, cursors[cursor.id].lastHeartbeat, cursors)
   });
 });
 
@@ -61,11 +80,17 @@ function updateCanvas() {
   io.emit("updateCanvas", components, previews);
 }
 function updateCursors() {
+  for (const id in cursors) {
+    if (cursors[id].lastHeartbeat + 60000 < new Date().getTime()) {
+      console.log("dead ", cursors[id])
+      sockets[id].disconnect();
+    }
+  }
   io.emit("updateCursors", cursors);
 }
 
 setInterval(updateCanvas, 1000 / 30);
-setInterval(updateCursors, 1000 / 20);
+setInterval(updateCursors, 1000 / 30);
 
 const PORT = 9500;
 server.listen(PORT, () => {
