@@ -11,12 +11,13 @@ const components = [];
 const previews = {};
 const cursors = {};
 const sockets = {};
+const chat = [];
 
 const theServer = {
+  id: 0,
   name: "server",
   color: "rgb(255,0,0)",
 };
-
 
 io.on("connection", (socket) => {
   const token = socket.handshake.auth.token;
@@ -36,10 +37,22 @@ io.on("connection", (socket) => {
   console.log("a new cursor connected", newCursor);
   console.log("all cursors", cursors);
   socket.emit("yourCursor", newCursor);
-  socket.broadcast.emit("chat", theServer, "A new cursor joined!");
+  socket.emit("chats", chat);
+  const newCursorMsg = `A new <span style="color: ${newCursor.color}">cursor</span> joined!`;
+  socket.broadcast.emit("chat", theServer, newCursorMsg);
+  chat.push({ cursor: theServer, msg: newCursorMsg });
 
   socket.on("disconnect", () => {
     console.log("cursor disconnected");
+    let cursorDisconnectMsg;
+    const c = cursors[socket.id];
+    if (c.name != "") {
+      cursorDisconnectMsg = `<span style="color: ${c.color}">${c.name}</span> disconnected!`;
+    } else {
+      cursorDisconnectMsg = `A <span style="color: ${c.color}">cursor</span> disconnected!`;
+    }
+    socket.broadcast.emit("chat", theServer, cursorDisconnectMsg);
+    chat.push({ cursor: theServer, msg: cursorDisconnectMsg });
     delete cursors[socket.id];
     console.log(cursors);
   });
@@ -51,12 +64,10 @@ io.on("connection", (socket) => {
 
   socket.on("pushPreview", (p) => {
     previews[p.id] = p;
-    // console.log(previews)
   });
 
   socket.on("popPreview", (p) => {
     delete previews[p.id];
-    // console.log(previews)
   });
 
   socket.on("cursorUpdate", (cursor) => {
@@ -65,14 +76,14 @@ io.on("connection", (socket) => {
   });
 
   socket.on("chat", (cursor, msg) => {
-    console.log("chat", cursor, msg)
+    console.log("chat", cursor, msg);
     io.emit("chat", cursor, msg);
-  })
+    chat.push({ cursor, msg });
+  });
 
   socket.on("pulse", (cursor) => {
     if (!cursors[cursor.id]) return;
     cursors[cursor.id].lastHeartbeat = new Date().getTime();
-    // console.log(cursor.id, cursors[cursor.id].lastHeartbeat, cursors)
   });
 });
 
@@ -81,8 +92,8 @@ function updateCanvas() {
 }
 function updateCursors() {
   for (const id in cursors) {
-    if (cursors[id].lastHeartbeat + 60000 < new Date().getTime()) {
-      console.log("dead ", cursors[id])
+    if (cursors[id].lastHeartbeat + 1000 * 60 * 5 < new Date().getTime()) {
+      console.log("dead ", cursors[id]);
       sockets[id].disconnect();
     }
   }

@@ -166,7 +166,7 @@ function draw(tool) {
   if (tool?.fill) ctx.fill();
   else ctx.stroke();
 
-  // Reset current transformation matrix to the identity matrix
+  // Reset translation matrix
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
@@ -216,7 +216,6 @@ function setup() {
   canvas.addEventListener("wheel", wheel, false);
 
   ctx = canvas.getContext("2d");
-  // ctx.translate(0.5, 0.5);
 
   console.log("Establishing connection...");
   socket = io({
@@ -243,6 +242,26 @@ function setup() {
     }
   });
 
+  socket.on("chats", (chats) => {
+    for (const {cursor, msg} of chats) {
+      let msgItem;
+      if (cursor.id != myCursor.id) {
+        msgItem = $(
+          `<div><span style="color: ${cursor.color}">${
+cursor.name != "" ? cursor.name : "Cursor"
+}</span>: ${msg}</div>`
+        );
+      } else {
+        msgItem = $(`<div>${msg}</div>`);
+      }
+      if (cursor.name === "server") msgItem.addClass("serverMsg");
+      if (cursor.id == myCursor.id) msgItem.addClass("myMsg");
+      // msgItem.css("color", cursor.color);
+      $("#chatdiv").prepend(msgItem);
+
+    }
+  });
+
   socket.on("disconnect", (reason) => {
     if (reason === "io server disconnect") {
       alert("Disconnected");
@@ -256,20 +275,28 @@ function setup() {
 
   socket.on("updateCursors", (curs) => {
     cursors = curs;
+
+    const oldX = myCursor.x;
+    const oldY = myCursor.y;
     myCursor = cursors[myCursor.id];
+    myCursor.x = oldX;
+    myCursor.y = oldY;
   });
 
   socket.on("chat", (cursor, msg) => {
     let msgItem;
-    if (cursor.name != "" && cursor.id != myCursor.id) {
-      msgItem = $(`<div>${cursor.name}: ${msg}</div>`);
+    if (cursor.id != myCursor.id) {
+      msgItem = $(
+        `<div><span style="color: ${cursor.color}">${
+          cursor.name != "" ? cursor.name : "Cursor"
+        }</span>: ${msg}</div>`
+      );
     } else {
       msgItem = $(`<div>${msg}</div>`);
     }
-
     if (cursor.name === "server") msgItem.addClass("serverMsg");
     if (cursor.id == myCursor.id) msgItem.addClass("myMsg");
-    msgItem.css("color", cursor.color);
+    // msgItem.css("color", cursor.color);
     $("#chatdiv").prepend(msgItem);
   });
 
@@ -344,9 +371,11 @@ function setup() {
     if (event.key == "Enter") {
       event.preventDefault();
       const msg = $("#chatInput").val();
-      $("#chatInput").val("");
-      console.log(msg);
-      socket.emit("chat", myCursor, msg);
+      if (msg != "") {
+        $("#chatInput").val("");
+        console.log(msg);
+        socket.emit("chat", myCursor, msg);
+      }
     }
   });
 }
@@ -369,7 +398,6 @@ function loop() {
 
   for (const id in cursors) {
     if (id != myCursor.id) drawCursor(cursors[id]);
-    // drawCursor(cursors[id]);
   }
 
   drawCursor(myCursor);

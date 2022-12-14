@@ -59,10 +59,12 @@
         left: 0.1em;
         pointer-events: none;
         width: 300px;
+        positoin: absolute;
       }
 
       .bottom-left * {
         pointer-events: auto;
+
       }
 
       #selectedColor {
@@ -74,17 +76,20 @@
       }
 
       #name {
-        width: 10em;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 0.25em;
       }
 
 
       #chatdiv {
+        /* position: relative; */
         margin-bottom: 0.25em;
         padding: 0px;
         border: 1px solid black;
         background-color: #f5f5f5;
         width: 100%;
-        height: 200px;
+        height: calc(100vh - 128px);
         font-size: 12px;
         overflow-y: auto;
         display: inline-flex;
@@ -155,12 +160,12 @@
         </div>
       </div>
 
-      <div class="overlay top-right">
-        <input id="name" type="text" placeholder="Name"></input>
-      </div>
+      <!-- <div class="overlay top-right"> -->
+      <!-- </div> -->
 
       <div class="overlay bottom-left">
-        <div id="chatdiv"></div>
+        <input id="name" type="text" placeholder="Name"></input>
+        <div id="chatdiv"><div></div></div>
         <input id="chatInput" tabindex=1 type="text"></input>
         <input id="xCoord" tabindex=3 type="text" value = "10"></input>
         <input id="yCoord" tabindex=2 type="text" value = "10"></input>
