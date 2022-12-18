@@ -45,6 +45,7 @@ class Circle extends Tool {
     this.color = currentColor;
     this.fill = fill;
     this.lineWidth = lineWidth;
+    this.bbox = { sx: e.x, sy: e.y, ex: e.x, ey: e.y };
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -66,7 +67,10 @@ class Circle extends Tool {
       this.cy = startY + this.ry;
     }
   }
-  mouseup(e) {}
+  mouseup(e) {
+    this.bbox.ex = e.x;
+    this.bbox.ey = e.y;
+  }
 }
 
 class Square extends Tool {
@@ -82,6 +86,7 @@ class Square extends Tool {
     this.color = currentColor;
     this.fill = fill;
     this.lineWidth = lineWidth;
+    this.bbox = { sx: e.x, sy: e.y, ex: e.x, ey: e.y };
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -89,7 +94,10 @@ class Square extends Tool {
       this.height = e.y - this.y;
     }
   }
-  mouseup(e) {}
+  mouseup(e) {
+    this.bbox.ex = e.x;
+    this.bbox.ey = e.y;
+  }
 }
 
 class Line extends Tool {
@@ -104,6 +112,7 @@ class Line extends Tool {
     this.ey = e.y;
     this.color = currentColor;
     this.lineWidth = lineWidth;
+    this.bbox = { sx: e.x, sy: e.y, ex: e.x, ey: e.y };
   }
   mousemove(e) {
     if (e.leftDown) {
@@ -111,7 +120,10 @@ class Line extends Tool {
       this.ey = e.y;
     }
   }
-  mouseup(e) {}
+  mouseup(e) {
+    this.bbox.ex = e.x;
+    this.bbox.ey = e.y;
+  }
 }
 
 class Freehand extends Tool {
@@ -215,7 +227,8 @@ function setup() {
   canvas.addEventListener("mousemove", mousemove, false);
   canvas.addEventListener("wheel", wheel, false);
 
-  ctx = canvas.getContext("2d");
+  // disabling alpha for performance
+  ctx = canvas.getContext("2d", { alpha: false });
 
   console.log("Establishing connection...");
   socket = io({
@@ -243,13 +256,13 @@ function setup() {
   });
 
   socket.on("chats", (chats) => {
-    for (const {cursor, msg} of chats) {
+    for (const { cursor, msg } of chats) {
       let msgItem;
       if (cursor.id != myCursor.id) {
         msgItem = $(
           `<div><span style="color: ${cursor.color}">${
-cursor.name != "" ? cursor.name : "Cursor"
-}</span>: ${msg}</div>`
+            cursor.name != "" ? cursor.name : "Cursor"
+          }</span>: ${msg}</div>`
         );
       } else {
         msgItem = $(`<div>${msg}</div>`);
@@ -258,7 +271,6 @@ cursor.name != "" ? cursor.name : "Cursor"
       if (cursor.id == myCursor.id) msgItem.addClass("myMsg");
       // msgItem.css("color", cursor.color);
       $("#chatdiv").prepend(msgItem);
-
     }
   });
 

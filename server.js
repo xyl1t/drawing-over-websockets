@@ -59,7 +59,9 @@ io.on("connection", (socket) => {
 
   socket.on("addComponent", (data) => {
     components.push(data);
-    // updateCanvas();
+    if (data.length > 256) {
+      components.shift();
+    }
   });
 
   socket.on("pushPreview", (p) => {
@@ -88,6 +90,15 @@ io.on("connection", (socket) => {
 });
 
 function updateCanvas() {
+  for (const id in cursors) {
+    // for (const comp of components) {
+    // }
+    if (cursors[id].lastHeartbeat + 1000 * 60 * 5 < new Date().getTime()) {
+      console.log("dead ", cursors[id]);
+      sockets[id].disconnect();
+    }
+  }
+
   io.emit("updateCanvas", components, previews);
 }
 function updateCursors() {
@@ -100,8 +111,8 @@ function updateCursors() {
   io.emit("updateCursors", cursors);
 }
 
-setInterval(updateCanvas, 1000 / 30);
-setInterval(updateCursors, 1000 / 30);
+setInterval(updateCanvas, 1000 / 10);
+setInterval(updateCursors, 1000 / 10);
 
 const PORT = 9500;
 server.listen(PORT, () => {
